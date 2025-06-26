@@ -1,0 +1,94 @@
+# nginx proxy address - http://172.17.0.1:60236
+
+name: owncloud
+x-logging: &default-logging
+  options:
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
+
+services:
+  app:
+    image: owncloud/server:latest
+    container_name: owncloud-app
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
+    pull_policy: always
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - OWNCLOUD_DOMAIN=${BASE_HOST_NAME:-$HOSTNAME}
+      - OWNCLOUD_TRUSTED_DOMAINS=${BASE_HOST_NAME:-$HOSTNAME}
+      - OWNCLOUD_DB_TYPE=mysql
+      - OWNCLOUD_DB_NAME=owncloud
+      - OWNCLOUD_DB_USERNAME=owncloud
+      - OWNCLOUD_DB_PASSWORD=gON3IEWXS2SWiEPfkIkEJWQ3GPpajnux
+      - OWNCLOUD_DB_HOST=mariadb
+      - OWNCLOUD_ADMIN_USERNAME=${ADMIN_USERNAME}
+      - OWNCLOUD_ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - OWNCLOUD_MYSQL_UTF8MB4=true
+      - OWNCLOUD_REDIS_ENABLED=true
+      - OWNCLOUD_REDIS_HOST=redis
+    ports:
+      - '172.17.0.1:59029:8080'
+    volumes:
+      - './rootfs/data/owncloud:/mnt/data'
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', '/usr/bin/healthcheck']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - owncloud
+
+  dn:
+    image: mariadb:10.11 # minimum required ownCloud version is 10.9
+    container_name: owncloud-db
+    hostname: owncloud-db
+    restart: always
+    pull_policy: always
+    command: ['--max-allowed-packet=128M', '--innodb-log-file-size=64M']
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - MYSQL_USER=owncloud
+      - MYSQL_PASSWORD=owncloud
+      - MYSQL_DATABASE=owncloud
+      - MYSQL_ROOT_PASSWORD=gON3IEWXS2SWiEPfkIkEJWQ3GPpajnux
+      - MARIADB_AUTO_UPGRADE=1
+    volumes:
+      - './rootfs/db/mysql:/var/lib/mysql'
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-u', 'root', '--password=owncloud']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - owncloud
+
+  redis:
+    image: redis:6
+    container_name: owncloud-redis
+    hostname: owncloud-redis
+    restart: always
+    pull_policy: always
+    command: ['--databases', '1']
+    environment:
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - ./rootfs/db/redis:/data'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - owncloud
+
+networks:
+  owncloud:
+    name: owncloud
+    external: false
