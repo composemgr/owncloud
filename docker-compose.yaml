@@ -1,0 +1,97 @@
+# nginx proxy address - http://172.17.0.1:60236
+
+name: owncloud
+x-logging: &default-logging
+  options:
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
+
+services:
+  app:
+    image: owncloud/server:latest
+    container_name: owncloud-app
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      OWNCLOUD_DOMAIN: ${BASE_HOST_NAME:-$HOSTNAME}
+      OWNCLOUD_TRUSTED_DOMAINS: ${BASE_HOST_NAME:-$HOSTNAME}
+      OWNCLOUD_DB_TYPE: mysql
+      OWNCLOUD_DB_NAME: ${DB_CREATE_DATABASE_NAME:-owncloud}
+      OWNCLOUD_DB_USERNAME: ${DB_USER_NAME:-owncloud}
+      OWNCLOUD_DB_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+      OWNCLOUD_DB_HOST: owncloud-db
+      OWNCLOUD_ADMIN_USERNAME: ${APP_ADMIN_USER:-admin}
+      OWNCLOUD_ADMIN_PASSWORD: ${APP_ADMIN_PASS:-changeme_admin_password}
+      OWNCLOUD_MYSQL_UTF8MB4: true
+      OWNCLOUD_REDIS_ENABLED: true
+      OWNCLOUD_REDIS_HOST: owncloud-redis
+    ports:
+      - '172.17.0.1:59029:8080'
+    volumes:
+      - './rootfs/data/owncloud:/mnt/data'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', '/usr/bin/healthcheck']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - owncloud
+
+  db:
+    image: mariadb:10.11
+    container_name: owncloud-db
+    hostname: owncloud-db
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    command: ['--max-allowed-packet=128M', '--innodb-log-file-size=64M']
+    environment:
+      TZ: ${TZ:-America/New_York}
+      MYSQL_USER: ${DB_USER_NAME:-owncloud}
+      MYSQL_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+      MYSQL_DATABASE: ${DB_CREATE_DATABASE_NAME:-owncloud}
+      MYSQL_ROOT_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
+      MARIADB_AUTO_UPGRADE: 1
+    volumes:
+      - './rootfs/db/mariadb/owncloud:/var/lib/mysql'
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-u', 'root', '--password=${DB_ADMIN_PASS:-changeme_admin_password}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - owncloud
+
+  redis:
+    image: redis:6
+    container_name: owncloud-redis
+    hostname: owncloud-redis
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    command: ['--databases', '1']
+    environment:
+      TZ: ${TZ:-America/New_York}
+    volumes:
+      - './rootfs/db/redis/owncloud:/data'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - owncloud
+
+networks:
+  owncloud:
+    name: owncloud
+    external: false
