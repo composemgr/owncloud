@@ -62,7 +62,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
       MARIADB_AUTO_UPGRADE: 1
     volumes:
-      - './rootfs/db/mariadb/owncloud:/var/lib/mysql'
+      - './rootfs/data/db/mariadb/owncloud:/var/lib/mysql'
     healthcheck:
       test: ['CMD', 'mysqladmin', 'ping', '-u', 'root', '--password=${DB_ADMIN_PASS:-changeme_admin_password}']
       interval: 10s
@@ -82,7 +82,7 @@ services:
     environment:
       TZ: ${TZ:-America/New_York}
     volumes:
-      - './rootfs/db/redis/owncloud:/data'
+      - './rootfs/data/db/redis/owncloud:/data'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
