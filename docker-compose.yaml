@@ -32,7 +32,7 @@ services:
     ports:
       - '172.17.0.1:59029:8080'
     volumes:
-      - './rootfs/data/owncloud:/mnt/data'
+      - './volumes/data/owncloud:/mnt/data'
     depends_on:
       db:
         condition: service_healthy
@@ -62,7 +62,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
       MARIADB_AUTO_UPGRADE: 1
     volumes:
-      - './rootfs/data/db/mariadb/owncloud:/var/lib/mysql'
+      - './volumes/data/db/mariadb/owncloud:/var/lib/mysql'
     healthcheck:
       test: ['CMD', 'mysqladmin', 'ping', '-u', 'root', '--password=${DB_ADMIN_PASS:-changeme_admin_password}']
       interval: 10s
@@ -82,7 +82,7 @@ services:
     environment:
       TZ: ${TZ:-America/New_York}
     volumes:
-      - './rootfs/data/db/redis/owncloud:/data'
+      - './volumes/data/db/redis/owncloud:/data'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
