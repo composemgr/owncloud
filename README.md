@@ -56,9 +56,9 @@ See `docker-compose.yaml` for complete list of configurable options.
 
 ## 📂 Volumes
 
-- `./rootfs/data/owncloud` - Data storage
-- `./rootfs/data/db/mariadb/owncloud` - Data storage
-- `./rootfs/data/db/redis/owncloud` - Data storage
+- `./volumes/data/owncloud` - Data storage
+- `./volumes/data/db/mariadb/owncloud` - Data storage
+- `./volumes/data/db/redis/owncloud` - Data storage
 
 ## 🔐 Security
 
