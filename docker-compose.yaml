@@ -47,7 +47,7 @@ services:
       - owncloud
 
   db:
-    image: mariadb:10.11
+    image: mariadb:latest
     container_name: owncloud-db
     hostname: owncloud-db
     restart: always
@@ -72,7 +72,7 @@ services:
       - owncloud
 
   redis:
-    image: redis:6
+    image: redis:alpine
     container_name: owncloud-redis
     hostname: owncloud-redis
     restart: always
