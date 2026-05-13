@@ -1,4 +1,4 @@
-# nginx proxy address - http://172.17.0.1:60236
+# nginx proxy address - http://172.17.0.1:59029
 
 name: owncloud
 x-logging: &default-logging
@@ -29,6 +29,8 @@ services:
       OWNCLOUD_MYSQL_UTF8MB4: true
       OWNCLOUD_REDIS_ENABLED: true
       OWNCLOUD_REDIS_HOST: owncloud-redis
+      CONTAINER_NAME: owncloud-app
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
     ports:
       - '172.17.0.1:59029:8080'
     volumes:
@@ -45,6 +47,24 @@ services:
       retries: 5
     networks:
       - owncloud
+      - proxy
+      - cloudflare
+    labels:
+      - 'traefik.enable=true'
+      - 'cloudflare.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'cloudflare.service=http://owncloud-app:8080'
+      - 'cloudflare.hostname=owncloud.${CLOUDFLARE_ZONE_NAME:-}'
+      - 'traefik.http.routers.owncloud-app.entrypoints=http'
+      - 'traefik.http.routers.owncloud-app-secure.tls=true'
+      - 'traefik.http.routers.owncloud-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.middlewares.owncloud-app-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.owncloud-app.middlewares=owncloud-app-https-redirect'
+      - 'traefik.http.routers.owncloud-app-secure.entrypoints=https'
+      - 'traefik.http.routers.owncloud-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.routers.owncloud-app-secure.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.owncloud-app-secure.service=owncloud-app'
+      - 'traefik.http.services.owncloud-app.loadbalancer.server.port=8080'
 
   db:
     image: mariadb:latest
@@ -61,6 +81,7 @@ services:
       MYSQL_DATABASE: ${DB_CREATE_DATABASE_NAME:-owncloud}
       MYSQL_ROOT_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
       MARIADB_AUTO_UPGRADE: 1
+      CONTAINER_NAME: owncloud-db
     volumes:
       - './volumes/data/db/mariadb/owncloud:/var/lib/mysql'
     healthcheck:
@@ -81,6 +102,7 @@ services:
     command: ['--databases', '1']
     environment:
       TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: owncloud-redis
     volumes:
       - './volumes/data/db/redis/owncloud:/data'
     healthcheck:
@@ -95,3 +117,7 @@ networks:
   owncloud:
     name: owncloud
     external: false
+  proxy:
+    external: true
+  cloudflare:
+    external: true
