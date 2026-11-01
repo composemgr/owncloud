@@ -1,4 +1,4 @@
-# nginx proxy address - http://172.17.0.1:59029
+# nginx proxy address - http://172.17.0.1:64291
 
 name: owncloud
 x-logging: &default-logging
@@ -8,63 +8,45 @@ x-logging: &default-logging
   driver: json-file
 
 services:
-  app:
+  server:
     image: owncloud/server:latest
-    container_name: owncloud-app
+    container_name: owncloud-server
+    domainname: ${BASE_DOMAIN_NAME:-example.com}
     hostname: ${BASE_HOST_NAME:-$HOSTNAME}
     restart: always
     pull_policy: always
     logging: *default-logging
     environment:
       TZ: ${TZ:-America/New_York}
-      OWNCLOUD_DOMAIN: ${BASE_HOST_NAME:-$HOSTNAME}
-      OWNCLOUD_TRUSTED_DOMAINS: ${BASE_HOST_NAME:-$HOSTNAME}
-      OWNCLOUD_DB_TYPE: mysql
-      OWNCLOUD_DB_NAME: ${DB_CREATE_DATABASE_NAME:-owncloud}
-      OWNCLOUD_DB_USERNAME: ${DB_USER_NAME:-owncloud}
-      OWNCLOUD_DB_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
-      OWNCLOUD_DB_HOST: owncloud-db
-      OWNCLOUD_ADMIN_USERNAME: ${APP_ADMIN_USER:-admin}
-      OWNCLOUD_ADMIN_PASSWORD: ${APP_ADMIN_PASS:-changeme_admin_password}
-      OWNCLOUD_MYSQL_UTF8MB4: true
-      OWNCLOUD_REDIS_ENABLED: true
-      OWNCLOUD_REDIS_HOST: owncloud-redis
-      CONTAINER_NAME: owncloud-app
+      CONTAINER_NAME: owncloud-server
       HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+      OC_EXE: php
+      NEXTCLOUD_ADMIN_USER: ${APP_ADMIN_USER:-admin}
+      NEXTCLOUD_ADMIN_PASS: ${APP_ADMIN_PASS:-changeme_admin_password}
+      NEXTCLOUD_MAIL_DOMAIN: ${BASE_HOST_NAME:-$HOSTNAME}
+      NEXTCLOUD_MAIL_FROM_ADDRESS: ${EMAIL_SERVER_MAIL_FROM:-no-reply}
+      NEXTCLOUD_MAIL_SMTP_ADDRESS: ${EMAIL_SERVER_HOST:-172.17.0.1}
+      NEXTCLOUD_MAIL_SMTP_PORT: ${EMAIL_SERVER_PORT:-587}
+      NEXTCLOUD_MAIL_SMTP_NAME: ${EMAIL_SERVER_HOST:-172.17.0.1}
+      NEXTCLOUD_MAIL_SMTP_USER: ${EMAIL_SERVER_LOGIN_NAME:-}
+      NEXTCLOUD_MAIL_SMTP_PASSWORD: ${EMAIL_SERVER_LOGIN_PASS:-}
+      NEXTCLOUD_MAIL_SMTP_SECURE: ${EMAIL_SERVER_USE_SSL:-true}
+      REDIS_HOST: owncloud-redis
+      TRUSTED_PROXIES: 172.17.0.1/16
+      TRUSTED_DOMAINS: ${BASE_HOST_NAME:-$HOSTNAME}
+      OVERWRITEHOST: ${BASE_HOST_NAME:-$HOSTNAME}
+      OVERWRITEPROTOCOL: https
     ports:
-      - '172.17.0.1:59029:8080'
+      - '172.17.0.1:64291:8080'
     volumes:
-      - './volumes/data/owncloud:/mnt/data'
+      - './volumes/data/owncloud:/var/www/html:z'
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ['CMD', '/usr/bin/healthcheck']
-      interval: 30s
-      timeout: 10s
-      retries: 5
     networks:
       - owncloud
-      - proxy
-      - cloudflare
-    labels:
-      - 'traefik.enable=true'
-      - 'cloudflare.enable=true'
-      - 'traefik.docker.network=proxy'
-      - 'cloudflare.service=http://owncloud-app:8080'
-      - 'cloudflare.hostname=owncloud.${CLOUDFLARE_ZONE_NAME:-}'
-      - 'traefik.http.routers.owncloud-app.entrypoints=http'
-      - 'traefik.http.routers.owncloud-app-secure.tls=true'
-      - 'traefik.http.routers.owncloud-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
-      - 'traefik.http.middlewares.owncloud-app-https-redirect.redirectscheme.scheme=https'
-      - 'traefik.http.routers.owncloud-app.middlewares=owncloud-app-https-redirect'
-      - 'traefik.http.routers.owncloud-app-secure.entrypoints=https'
-      - 'traefik.http.routers.owncloud-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
-      - 'traefik.http.routers.owncloud-app-secure.tls.certresolver=cloudflare'
-      - 'traefik.http.routers.owncloud-app-secure.service=owncloud-app'
-      - 'traefik.http.services.owncloud-app.loadbalancer.server.port=8080'
 
   db:
     image: mariadb:latest
@@ -73,22 +55,22 @@ services:
     restart: always
     pull_policy: always
     logging: *default-logging
-    command: ['--max-allowed-packet=128M', '--innodb-log-file-size=64M']
     environment:
       TZ: ${TZ:-America/New_York}
-      MYSQL_USER: ${DB_USER_NAME:-owncloud}
-      MYSQL_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
-      MYSQL_DATABASE: ${DB_CREATE_DATABASE_NAME:-owncloud}
-      MYSQL_ROOT_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
-      MARIADB_AUTO_UPGRADE: 1
       CONTAINER_NAME: owncloud-db
+      MARIADB_AUTO_UPGRADE: "1"
+      MARIADB_INIT_SKIP_TZINFO: "1"
+      MARIADB_DATABASE: ${DB_CREATE_DATABASE_NAME:-owncloud}
+      MARIADB_USER: ${DB_USER_NAME:-owncloud}
+      MARIADB_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+      MARIADB_ROOT_PASSWORD: ${DB_ADMIN_PASS:-changeme_admin_password}
     volumes:
-      - './volumes/data/db/mariadb/owncloud:/var/lib/mysql'
+      - './volumes/db/mariadb/owncloud:/var/lib/mysql:z'
     healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-u', 'root', '--password=${DB_ADMIN_PASS:-changeme_admin_password}']
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - owncloud
 
@@ -99,12 +81,10 @@ services:
     restart: always
     pull_policy: always
     logging: *default-logging
-    command: ['--databases', '1']
     environment:
       TZ: ${TZ:-America/New_York}
       CONTAINER_NAME: owncloud-redis
-    volumes:
-      - './volumes/data/db/redis/owncloud:/data'
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis_password}
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
@@ -117,7 +97,3 @@ networks:
   owncloud:
     name: owncloud
     external: false
-  proxy:
-    external: true
-  cloudflare:
-    external: true

@@ -1,19 +1,19 @@
 ## 👋 Welcome to owncloud 🚀
 
-Self-hosted owncloud application
+Self-hosted file sync and share
 
 ## 📋 Description
 
-Self-hosted owncloud application
+Self-hosted file sync and share
 
 ## 🚀 Services
 
-- **app**: owncloud/server:latest
+- **server**: owncloud/server:latest
 
 ### Infrastructure Components
 
 - **db**: Mariadb database
-- **redis**: Redis database
+- **redis**: Redis cache
 
 
 ## 📦 Installation
@@ -27,7 +27,8 @@ curl -q -LSsf "https://raw.githubusercontent.com/composemgr/owncloud/main/docker
 ```bash
 git clone "https://github.com/composemgr/owncloud" ~/.local/srv/docker/owncloud
 cd ~/.local/srv/docker/owncloud
-docker compose up -d
+cp default.env .env
+docker compose --env-file .env up -d
 ```
 
 ### Option 3: Using composemgr
@@ -41,24 +42,69 @@ composemgr install owncloud
 
 ```shell
 TZ=America/New_York
-DB_CREATE_DATABASE_NAME=owncloud
+BASE_DOMAIN_NAME=example.com
+BASE_HOST_NAME=owncloud.example.com
+SERVICE_USER=1000
+SERVICE_GROUP=1000
+DB_ADMIN_PASS=replace-with-a-random-password
 DB_USER_NAME=owncloud
-DB_USER_PASS=changeme_db_password
+DB_USER_PASS=replace-with-a-random-password
+DB_CREATE_DATABASE_NAME=owncloud
+REDIS_PASSWORD=replace-with-a-random-password
 APP_ADMIN_USER=admin
-APP_ADMIN_PASS=changeme_admin_password
+APP_ADMIN_PASS=replace-with-a-random-password
+EMAIL_SERVER_PORT=587
+EMAIL_SERVER_HOST=172.17.0.1
+EMAIL_SERVER_MAIL_FROM=no-reply@example.com
+EMAIL_SERVER_LOGIN_NAME=replace-with-your-smtp-username
+EMAIL_SERVER_LOGIN_PASS=replace-with-your-smtp-password
+CLOUDFLARE_ZONE_NAME=example.com
+CLOUDFLARE_TUNNEL_ID=replace-with-your-tunnel-id
 ```
 
 See `docker-compose.yaml` for complete list of configurable options.
 
+### Environment Files
+
+`default.env.sample` holds the full set of variables and is copied to `.env`
+before starting the stack:
+
+```bash
+cp default.env .env
+docker compose --env-file .env up -d
+```
+
+`app.env.sample` holds the app-specific overrides and is copied to `app.env`:
+
+```bash
+cp app.env.sample app.env
+```
+
+`composemgr up` applies `app.env` and `default.env` automatically. Raw
+`docker compose` commands need `--env-file .env` to pick up the same values.
+
+### Reverse Proxy
+
+Three standalone compose files ship in this repo:
+
+| File | Use |
+|------|-----|
+| `docker-compose.yaml` | Default, published on `172.17.0.1:64291` |
+| `docker-compose.traefik.yaml` | Behind an existing external `traefik` network |
+| `docker-compose.tunnel.yaml` | Behind an existing external `cloudflare` tunnel network |
+
+```bash
+docker compose -f docker-compose.traefik.yaml --env-file .env up -d
+```
+
 ## 🌐 Access
 
-- **Web Interface**: http://172.17.0.1:60236
+- **Web Interface**: http://172.17.0.1:64291
 
 ## 📂 Volumes
 
-- `./volumes/data/owncloud` - Data storage
-- `./volumes/data/db/mariadb/owncloud` - Data storage
-- `./volumes/data/db/redis/owncloud` - Data storage
+- `./volumes/data/owncloud` - Application data
+- `./volumes/db/mariadb/owncloud` - Database data
 
 ## 🔐 Security
 
@@ -71,26 +117,26 @@ See `docker-compose.yaml` for complete list of configurable options.
 ## 🔍 Logging
 
 ```shell
-docker compose logs -f app
+docker compose --env-file .env logs -f server
 ```
 
 ## 🛠️ Management
 
 ```bash
 # Start services
-docker compose up -d
+docker compose --env-file .env up -d
 
 # Stop services
-docker compose down
+docker compose --env-file .env down
 
 # Update to latest images
-docker compose pull && docker compose up -d
+docker compose --env-file .env pull && docker compose --env-file .env up -d
 
 # View logs
-docker compose logs -f
+docker compose --env-file .env logs -f
 
 # Restart services
-docker compose restart
+docker compose --env-file .env restart
 ```
 
 ## 📋 Requirements
@@ -100,5 +146,5 @@ docker compose restart
 
 ## 🤝 Author
 
-🤖 casjay: [Github](https://github.com/casjay) 🤖  
+🤖 casjay: [Github](https://github.com/casjay) 🤖
 🦄 composemgr: [Github](https://github.com/composemgr) 🦄
